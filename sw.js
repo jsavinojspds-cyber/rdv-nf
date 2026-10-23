@@ -1,0 +1,8 @@
+'use strict';
+const CACHE='rdv-nf-v1';
+const ROOT=new URL('./',self.location.href);
+const ASSETS=['./','index.html','manifest.json','icon-192.png','icon-512.png'];
+self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting())));
+self.addEventListener('activate',event=>event.waitUntil((async()=>{for(const key of await caches.keys())if(key.startsWith('rdv-nf-')&&key!==CACHE)await caches.delete(key);await self.clients.claim()})()));
+function remote(path){if(path==='ocr/tesseract.min.js')return 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';if(path==='ocr/worker.min.js')return 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js';if(/^ocr\/core\/tesseract-core[\w.-]*$/.test(path))return 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1/'+path.slice(9);if(path==='ocr/lang/por.traineddata.gz')return 'https://tessdata.projectnaptha.com/4.0.0/por.traineddata.gz';return null}
+self.addEventListener('fetch',event=>{const url=new URL(event.request.url);if(event.request.method!=='GET'||url.origin!==ROOT.origin||!url.pathname.startsWith(ROOT.pathname))return;event.respondWith((async()=>{const cache=await caches.open(CACHE);const hit=await cache.match(event.request);if(hit)return hit;const path=url.pathname.slice(ROOT.pathname.length);try{const target=remote(path);const response=await fetch(target||event.request);if(response.ok)await cache.put(event.request,response.clone());return response}catch(error){if(event.request.mode==='navigate')return (await cache.match(new URL('index.html',ROOT).href))||Response.error();return Response.error()}})())});
